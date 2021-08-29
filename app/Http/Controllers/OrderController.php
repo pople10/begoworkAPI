@@ -14,6 +14,9 @@ use Auth;
 use DB;
 use DateTime;
 
+use Notification;
+use App\Notifications\MobileNotification;
+
 class OrderController extends Controller
 {
     
@@ -25,6 +28,20 @@ class OrderController extends Controller
         'Thu'=>'Thursday',
         'Fri'=>'Friday',
         'Sat'=>'Saturday'
+    ];
+    
+    public $Translator = [
+        "Completed"=>"REMPLIE",
+        "Pending"=>"EN ATTENTE",
+        "Frozen"=>"BLOQUEE",
+        "Refunded"=>"REMBOURSE"
+    ];
+    
+    public $colors = [
+        "Completed"=>"#30b74f",
+        "Pending"=>"#ffc107",
+        "Frozen"=>"#dc3545",
+        "Refunded"=>"#17a2b8"
     ];
     /**
      * Display a listing of the resource.
@@ -104,7 +121,15 @@ class OrderController extends Controller
     
     public function findAllByAuth()
     {
-        return response()->json(Order::all()->where("idAccount",Auth::user()->idAccount));
+        $data = Order::all()->where("idAccount",Auth::user()->idAccount)->sortByDesc("updated_at");
+        $array = array();
+        foreach($data as $val)
+        {
+            $val->statuDetail = Statu::find($val->idStatus);
+            $val->statuDetail->bgColor = $this->colors[$val->statuDetail->label];
+            $array[]=$val;
+        }
+        return response()->json($array);
     }
     
     public function findOneByAuth($ordID)
@@ -121,9 +146,14 @@ class OrderController extends Controller
         $arrayHelper = array();
         foreach(ProductOrder::all()->where("idOrder",$ord->idOrder) as $val)
         {
-            $arrayHelper[] = Product::find($val->idProd);
+            $prod = Product::find($val->idProd);
+            $prod->title = Listing::find($prod->idListing)->title;
+            $arrayHelper[] = $prod;
         }
         $ord->product = $arrayHelper;
+        $ord->statuDetail = Statu::find($ord->idStatus);
+        $ord->statuDetail->labelFr = $this->Translator[$ord->statuDetail->label];
+        $ord->statuDetail->bgColor = $this->colors[$ord->statuDetail->label];
         return response()->json($ord);
     }
     
@@ -223,6 +253,13 @@ class OrderController extends Controller
             ], 422);
         }
         DB::commit();
+        try{
+            Auth::user()->notify(new MobileNotification("Nous avons reçu votre réservation","Réservation","high"));
+        }
+        catch(Exception $e)
+        {
+            
+        }
         return response()->json([
                 'done' => "Créé avec succès"
             ], 200);

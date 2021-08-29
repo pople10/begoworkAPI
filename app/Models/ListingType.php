@@ -8,4 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class ListingType extends Model
 {
     use HasFactory;
+    
+    protected $primaryKey = 'idListingType';
 }

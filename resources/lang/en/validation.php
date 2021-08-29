@@ -181,5 +181,7 @@ return [
         'lastname'              => 'Nom',
         'startTime'              => 'temps de commencement',
         'endTime'              => 'temps d\'arrêt',
+        'keyword'              => 'mot clé',
+        'products'              => 'produit',
     ],
 ];

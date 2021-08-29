@@ -23,6 +23,7 @@ class CreateListingsTable extends Migration
             $table->foreignId('idLocation')->references('idLocation')->on('locations')->constrained()->onUpdate('CASCADE')->onDelete('RESTRICT');
             $table->foreignId('idType')->references('idListingType')->on('listing_types')->constrained()->onUpdate('CASCADE')->onDelete('RESTRICT');
             $table->boolean("availibility");
+            $table->string("photo");
         });
     }
 

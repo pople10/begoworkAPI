@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Listing;
+use App\Models\ListingType;
 use App\Models\Location;
+use App\Models\Product;
+use App\Models\WorkingTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Auth;
@@ -11,6 +14,25 @@ use DB;
 
 class ListingController extends Controller
 {
+    public $dayss = [
+        'Sunday'=>'Dimanche',
+        'Monday'=>'Lundi',
+        'Tuesday'=>'Mardi',
+        'Wednesday'=>'Mercredi',
+        'Thursday'=>'Jeudi',
+        'Friday'=>'Vendredi',
+        'Saturday'=>'Samedi'
+    ];
+    
+    public $days = [
+        'Sun'=>'Sunday',
+        'Mon'=>'Monday',
+        'Tue'=>'Tuesday',
+        'Wed'=>'Wednesday',
+        'Thu'=>'Thursday',
+        'Fri'=>'Friday',
+        'Sat'=>'Saturday'
+    ];
     /**
      * Display a listing of the resource.
      *
@@ -102,6 +124,8 @@ class ListingController extends Controller
         foreach($data as $val)
         {
             $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
         }
         return response()->json($data);
     }
@@ -121,6 +145,8 @@ class ListingController extends Controller
         foreach($data as $val)
         {
             $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
         }
         return response()->json($data);
     }
@@ -145,6 +171,8 @@ class ListingController extends Controller
         foreach($data as $val)
         {
             $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
         }
         return response()->json($data);
     }
@@ -169,6 +197,8 @@ class ListingController extends Controller
         foreach($data as $val)
         {
             $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
         }
         return response()->json($data);
     }
@@ -194,6 +224,8 @@ class ListingController extends Controller
         foreach($data as $val)
         {
             $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
         }
         return response()->json($data);
     }
@@ -226,6 +258,63 @@ class ListingController extends Controller
         foreach($data as $val)
         {
             $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
+        }
+        return response()->json($data);
+    }
+    
+    public function findByAvailability(Request $request)
+    {
+        $data_validator = Validator::make($request->all(),
+        [
+            'startTime' =>'required|date_format:Y-m-d H:i:s',
+            'endTime' =>'required|date_format:Y-m-d H:i:s|after:startTime',
+            'places' => 'required|numeric',
+            'keyword' => 'required|string',
+            'idType' => 'required|numeric'
+        ]);
+        if ($data_validator->fails()) {
+            return response()->json([
+                'erreur' => $data_validator->errors()->first()
+            ], 422);
+        }
+        $arrayHelper = array();
+        $startDate = strtotime($request->startTime);
+        $startDate = $this->days[date("D", $startDate)];
+        $endDate = strtotime($request->endTime);
+        $endDate = $this->days[date("D", $endDate)];
+        foreach(WorkingTime::whereIn("day",[$startDate,$endDate])->get() as $val)
+        {
+            $startTimeExact = explode(" ",$val->startTime)[1];
+            $endTimeExact = explode(" ",$val->endTime)[1];
+            if((strtotime($startTimeExact)-strtotime(explode(" ",$request->startTime)[1]))>0)
+            {
+                continue;
+            }
+            if((strtotime($endTimeExact)-strtotime(explode(" ",$request->endTime)[1]))<0)
+            {
+                continue;
+            }
+            $arrayHelper[] = $val->idListing;
+        }
+        $arrayHelper2 = array();
+        foreach(Product::where("seatsNumber",">=",$request->places)->get() as $val)
+        {
+            $arrayHelper2[] = $val->idListing;
+        }
+        $keyword = $request->keyword;
+        $arrayWhere = array_intersect($arrayHelper,$arrayHelper2);
+        $data = Listing::whereIn("idListing",$arrayWhere)->where("idType","=",$request->idType)
+        ->where(function($query) use ($keyword) {
+            $query->where("description","LIKE",'%'.$keyword.'%')
+            ->orWhere("title","LIKE",'%'.$keyword.'%');
+        })->get();
+        foreach($data as $val)
+        {
+            $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
         }
         return response()->json($data);
     }
@@ -237,7 +326,15 @@ class ListingController extends Controller
             return response()->json([
                 'erreur' => "Listing n'existe pas"
             ], 422);
+        $listing->type = ListingType::find($listing->idType);
         $listing->location = Location::find($listing->idLocation);
+        $listing->product = Product::where("idListing",$listing->idListing)->get();
+        $listing->time = WorkingTime::where("idListing",$listing->idListing)->get();
+        foreach($listing->time as $val)
+        {
+            $val->day = $this->dayss[$val->day];
+        }
+        $listing->photoUrl = url('storage/app/'.$listing->photo);
         return response()->json($listing);
     }
     
@@ -247,6 +344,8 @@ class ListingController extends Controller
         foreach($data as $val)
         {
             $val->location = Location::find($val->idLocation);
+            $val->photoUrl = url('storage/app/'.$val->photo);
+            $val->lowPrice = Product::where('idListing', $val->idListing)->selectRaw('min(price) as price,currency')->groupBy("currency")->first();
         }
         return response()->json($data);
     }

@@ -50,6 +50,11 @@ class UserController extends Controller
                 'erreur' => $data_validator->errors()->first()
             ], 422);
         }
+        $users = User::all()->where("email",$request->email);
+        if(count($users)!=0)
+            return response()->json([
+                'erreur' => 'Email s\'existe déjà'
+            ], 422);
         if(!$user = User::create($request->all()))
             return response()->json([
                 'erreur' => "Erreur se produit"
@@ -89,7 +94,7 @@ class UserController extends Controller
             'lastname' => 'required|string',
             'firstname' =>'required|string',
             'email'=>'required|email',
-            'photoAttachement' => 'required|file|mimes:jpeg,jpg,png'
+            'photoAttachement' => 'file|mimes:jpeg,jpg,png'
         ]);
         if ($data_validator->fails()) {
             return response()->json([
@@ -105,13 +110,16 @@ class UserController extends Controller
                 'erreur' => "Email existe déjà"
             ], 422);
         $user->email = $request->email;
-        if(strpos($user->photo, "no-photo") === false)
-            Storage::delete($user->photo);
-        $filename=pathinfo($request->photoAttachement->getClientOriginalName(),PATHINFO_FILENAME);
-        $extention=pathinfo($request->photoAttachement->getClientOriginalName(),PATHINFO_EXTENSION);
-        $path = md5(time(). $filename).".".$extention;
-        $path = request()->photoAttachement->storeAs('photos', $path);
-        $user->photo = $path;
+        if($request->photoAttachement)
+        {
+            if(strpos($user->photo, "no-photo") === false)
+                Storage::delete($user->photo);
+            $filename=pathinfo($request->photoAttachement->getClientOriginalName(),PATHINFO_FILENAME);
+            $extention=pathinfo($request->photoAttachement->getClientOriginalName(),PATHINFO_EXTENSION);
+            $path = md5(time(). $filename).".".$extention;
+            $path = request()->photoAttachement->storeAs('photos', $path);
+            $user->photo = $path;
+        }
         if(!$user->save())
             return response()->json([
                 'erreur' => "Erreur se produit"
