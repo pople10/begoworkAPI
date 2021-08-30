@@ -254,7 +254,8 @@ class OrderController extends Controller
         }
         DB::commit();
         try{
-            Auth::user()->notify(new MobileNotification("Nous avons reçu votre réservation","Réservation","high"));
+            if(Auth::user()->enabledNotification)
+                Auth::user()->notify(new MobileNotification("Nous avons reçu votre réservation","Réservation","high"));
         }
         catch(Exception $e)
         {
